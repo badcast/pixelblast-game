@@ -58,7 +58,7 @@ private:
     bool canTrigger(const QList<std::uint8_t> &blocks, QList<std::uint8_t> &grids, bool placeTo = false);
     void generateCandidates(bool randomOnly);
     void assignBlocks(const QList<std::uint8_t> &blocks, ShapeBlock &assignTo);
-    QList<std::uint8_t> createBlocks(int blocks);
+    QList<std::uint8_t> createBlocks(int shape);
 
     float heightOffsetCandidates = 30;
 

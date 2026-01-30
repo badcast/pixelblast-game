@@ -216,14 +216,14 @@ void PixelBlast::mouseReleaseEvent(QMouseEvent *event)
     mouseBtn = 0;
 }
 
-QList<std::uint8_t> PixelBlast::createBlocks(int blocks)
+QList<std::uint8_t> PixelBlast::createBlocks(int shape)
 {
     int x, y;
     QList<std::uint8_t> blockArr {};
-    blockArr.resize(sizeof(blocks) * 8);
+    blockArr.resize(sizeof(shape) * 8);
     for(x = 0, y = 0; x < blockArr.size(); ++x)
     {
-        if((blockArr[x] = (blocks >> x) & 0x1))
+        if((blockArr[x] = (shape >> x) & 0x1))
             y = x;
     }
     blockArr.resize(y + 1);
@@ -350,7 +350,7 @@ void PixelBlast::generateCandidates(bool randomOnly)
                 std::shuffle(std::begin(_shapes), std::end(_shapes), *QRandomGenerator::global());
                 for(z = 0; z < MaxShapes; ++z)
                 {
-                    y = getShape(_shapes[z]);
+                    y = getShape(_shapes[z]) & 0x7FFFFFFF;
                     if(canTrigger(createBlocks(y), _virtualGrid, true))
                     {
                         break;
