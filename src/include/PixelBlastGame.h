@@ -8,12 +8,12 @@
 #include <QTimer>
 #include <QWidget>
 
+#include "PixelBegin.h"
 
-#ifdef PB_SHARED
-#define PB_EXPORT Q_DECL_EXPORT
-#else
-#define PB_EXPORT Q_DECL_IMPORT
-#endif
+#include "PixelNetwork.h"
+
+struct PixelStats;
+class PixelNetwork;
 
 struct PB_EXPORT BlockObject
 {
@@ -42,11 +42,23 @@ class PB_EXPORT PixelBlast : public QWidget
 public:
     PixelBlast(QWidget *parent = nullptr);
 
+    void setOnlineMode(bool state);
     void startGame();
     void stopGame();
+    void resetGame();
+
+    inline int getScores()
+    {
+        return scores;
+    }
+
+    PixelNetwork *network;
 
 private slots:
     void updateScene();
+
+    void receiveCurrent(const PixelStats &stat, bool ok);
+    void receiveStats(const QList<PixelStats> &stats, bool ok);
 
 private:
     void mousePressEvent(QMouseEvent *event) override;
@@ -80,6 +92,9 @@ private:
     QRectF boardRegion;
     QTimer updateTimer;
     QList<std::uint8_t> grid;
+
+    QList<PixelStats> _onlineStats;
+    PixelStats _onlineCurrent;
 
     float destroyScaler;
     QList<std::pair<BlockObject, int>> destroyBlocks;

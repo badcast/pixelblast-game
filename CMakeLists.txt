@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(pixelblast LANGUAGES CXX)
 
-find_package(Qt6 6 REQUIRED COMPONENTS Core Widgets Multimedia)
+find_package(Qt6 6 REQUIRED COMPONENTS Core Widgets Multimedia Network)
 
 qt_standard_project_setup()
 
@@ -10,12 +10,17 @@ add_subdirectory(src)
 qt_add_executable(pixelblastexec
     WIN32 MACOSX_BUNDLE
     main.cpp
+    mainwindow.h
+    mainwindow.cpp
+    mainwindow.ui
 )
 
 target_link_libraries(pixelblastexec
     PRIVATE
         Qt::Core
-        Qt::Widgets pixelblast
+        Qt::Widgets
+        Qt::Network
+        pixelblast
 )
 
 include(GNUInstallDirs)

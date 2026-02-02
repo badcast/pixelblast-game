@@ -18,6 +18,7 @@
 #include "PixelBlastGame.h"
 #include "PixelBlastShapes.h"
 #include "PixelSoundManager.h"
+#include "PixelNetwork.h"
 
 constexpr int MaxCellWidth = 8;
 
@@ -164,7 +165,7 @@ void prepareResources()
     soundManager->registerSound("block-destroy", QUrl::fromLocalFile(":/pixelblastgame/block-destroy"));
 }
 
-PixelBlast::PixelBlast(QWidget *parent) : QWidget(parent), updateTimer(this), boardRegion(0, 0, 328, 328), round(0), cellScale(1.0F, 1.0F), shapeCandidateIdx(-1), scores(0), frames(0), frameIndex(0), destroyScaler(0), mouseDownMode(true), lastSelectedBlock(-1)
+PixelBlast::PixelBlast(QWidget *parent) : QWidget(parent), updateTimer(this), boardRegion(0, 0, 328, 328), round(0), cellScale(1.0F, 1.0F), shapeCandidateIdx(-1), scores(0), frames(0), frameIndex(0), destroyScaler(0), mouseDownMode(true), lastSelectedBlock(-1), network(nullptr)
 {
     prepareResources();
 
@@ -189,19 +190,45 @@ PixelBlast::PixelBlast(QWidget *parent) : QWidget(parent), updateTimer(this), bo
     QObject::connect(&updateTimer, &QTimer::timeout, this, &PixelBlast::updateScene);
 }
 
+void PixelBlast::setOnlineMode(bool state)
+{
+    if(!state)
+    {
+        if(network)
+            delete network;
+        network = nullptr;
+        resetGame();
+    }
+    else if(network == nullptr)
+    {
+        network = new PixelNetwork(this);
+        resetGame();
+        network->readStats();
+    }
+}
+
 void PixelBlast::startGame()
 {
-    round = 0;
-    shapeCandidateIdx = -1;
-    currentShape.reset();
-    std::fill(std::begin(shapeCandidates), std::end(shapeCandidates), nullptr);
-
+    resetGame();
     updateTimer.start();
 }
 
 void PixelBlast::stopGame()
 {
     updateTimer.stop();
+}
+
+void PixelBlast::resetGame()
+{
+    round = 0;
+    scores = 0;
+    shapeCandidateIdx = -1;
+    lastSelectedBlock = -1;
+    currentShape.reset();
+    destroyScaler = 0;
+    destroyBlocks.clear();
+    std::fill(std::begin(grid), std::end(grid), 0x00000);
+    std::fill(std::begin(shapeCandidates), std::end(shapeCandidates), nullptr);
 }
 
 void PixelBlast::mousePressEvent(QMouseEvent *event)
@@ -344,7 +371,7 @@ void PixelBlast::generateCandidates(bool randomOnly)
     {
         switch(w)
         {
-          // SELECTIVE
+                // SELECTIVE
             case 0:
             {
                 std::shuffle(std::begin(_shapes), std::end(_shapes), *QRandomGenerator::global());
@@ -358,7 +385,7 @@ void PixelBlast::generateCandidates(bool randomOnly)
                 }
                 break;
             }
-              // RANDOM
+                // RANDOM
             case 1:
             {
                 do
@@ -569,9 +596,9 @@ void PixelBlast::paintEvent(QPaintEvent *event)
 
     // Draw game logo
     dest.setSize(gameLogo->size().toSizeF());
-    dest.setHeight(boardRegion.width()*1.4F / (dest.width() / dest.height()));
-    dest.setWidth(boardRegion.width()*1.4F);
-    dest.moveTopLeft(boardRegion.topLeft() + QPointF((boardRegion.width() - dest.width()) / 2, -dest.height()/1.2F));
+    dest.setHeight(boardRegion.width() * 1.4F / (dest.width() / dest.height()));
+    dest.setWidth(boardRegion.width() * 1.4F);
+    dest.moveTopLeft(boardRegion.topLeft() + QPointF((boardRegion.width() - dest.width()) / 2, -dest.height() / 1.2F));
     p.drawPixmap(dest, *gameLogo, {});
 
     // Draw grid & cells (central)
