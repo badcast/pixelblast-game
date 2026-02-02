@@ -7,12 +7,17 @@ qt_standard_project_setup()
 
 add_subdirectory(src)
 
+qt_add_resources(APP_RESOURCES
+    MainResource.qrc
+)
+
 qt_add_executable(pixelblastexec
     WIN32 MACOSX_BUNDLE
     main.cpp
     mainwindow.h
     mainwindow.cpp
     mainwindow.ui
+    ${APP_RESOURCES}
 )
 
 target_link_libraries(pixelblastexec
@@ -36,4 +41,10 @@ qt_generate_deploy_app_script(
     OUTPUT_SCRIPT deploy_script
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
+
 install(SCRIPT ${deploy_script})
+
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/Names.txt" NICKNAMES_RAW)
+
+target_compile_definitions(pixelblastexec PRIVATE NICKNAMES_RAW="${NICKNAMES_RAW}")
+

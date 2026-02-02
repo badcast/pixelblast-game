@@ -12,15 +12,15 @@ constexpr char CallbackUrl[] = "https://example.com/callback";
 constexpr char CallbackUrl[] = CALLBACK_URL;
 #endif
 
-inline std::pair<bool, PixelStats> getPixelStatObjec(QJsonObject jobj)
+inline std::pair<bool, PixelStats> getPixelStatObject(QJsonObject jsonObject)
 {
     PixelStats stat {};
     bool success;
-    if((success = (jobj["id"].isDouble() && jobj["name"].isString() && jobj["maxPoints"].isDouble())))
+    if((success = (jsonObject["id"].isDouble() && jsonObject["name"].isString() && jsonObject["maxPoints"].isDouble())))
     {
-        stat.id = jobj["id"].toInt();
-        stat.name = jobj["name"].toString();
-        stat.maxPoints = jobj["maxPoints"].toInt();
+        stat.id = jsonObject["id"].toInt();
+        stat.name = jsonObject["name"].toString();
+        stat.maxPoints = jsonObject["maxPoints"].toInt();
     }
     return {success, stat};
 }
@@ -43,11 +43,12 @@ void PixelNetwork::newClient(QString nickname)
 
     json["name"] = nickname;
     json["maxPoints"] = 0;
-    reply = manager->post(QNetworkRequest(QUrl(CallbackUrl)), jdoc.toJson(QJsonDocument::Compact));
+    QString aaa =  QJsonDocument(json).toJson(QJsonDocument::Compact);
+    reply = manager->post(QNetworkRequest(QUrl(CallbackUrl)), aaa.toUtf8());
     QObject::connect(reply, &QNetworkReply::finished, this, &PixelNetwork::onReplyCurrent);
 }
 
-void PixelNetwork::changeData(PixelStats stat)
+void PixelNetwork::updateStats(PixelStats stat)
 {
     QJsonDocument jdoc;
     QJsonObject json;
@@ -56,7 +57,7 @@ void PixelNetwork::changeData(PixelStats stat)
     json["id"] = stat.id;
     json["name"] = stat.name;
     json["maxPoints"] = stat.maxPoints;
-    reply = manager->post(QNetworkRequest(QUrl(CallbackUrl)), jdoc.toJson(QJsonDocument::Compact));
+    reply = manager->post(QNetworkRequest(QUrl(CallbackUrl)), QJsonDocument(json).toJson(QJsonDocument::Compact));
     QObject::connect(reply, &QNetworkReply::finished, this, &PixelNetwork::onReplyCurrent);
 }
 
@@ -81,7 +82,7 @@ void PixelNetwork::onReplyCurrent()
             QJsonObject data = jdoc["data"]["client"].toObject();
             if((ok = jdoc["ok"].toBool() && !data.isEmpty()))
             {
-                const auto &result = getPixelStatObjec(data);
+                const auto &result = getPixelStatObject(data);
                 if((ok = result.first))
                     curStat = result.second;
             }
@@ -106,7 +107,7 @@ void PixelNetwork::onReplyStats()
             {
                 for(int x = 0; x < items.size(); ++x)
                 {
-                    const auto &result = getPixelStatObjec(items[x].toObject());
+                    const auto &result = getPixelStatObject(items[x].toObject());
                     if(!(ok = result.first))
                     {
                         stats.clear();

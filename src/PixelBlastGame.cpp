@@ -203,7 +203,6 @@ void PixelBlast::setOnlineMode(bool state)
     {
         network = new PixelNetwork(this);
         resetGame();
-        network->readStats();
     }
 }
 
@@ -222,6 +221,8 @@ void PixelBlast::resetGame()
 {
     round = 0;
     scores = 0;
+    frames = 0;
+    frameIndex = 0;
     shapeCandidateIdx = -1;
     lastSelectedBlock = -1;
     currentShape.reset();
@@ -229,6 +230,11 @@ void PixelBlast::resetGame()
     destroyBlocks.clear();
     std::fill(std::begin(grid), std::end(grid), 0x00000);
     std::fill(std::begin(shapeCandidates), std::end(shapeCandidates), nullptr);
+}
+
+bool PixelBlast::isPlaying()
+{
+    return updateTimer.isActive();
 }
 
 void PixelBlast::mousePressEvent(QMouseEvent *event)
@@ -538,8 +544,9 @@ void PixelBlast::updateScene()
                 {
                     // GAME OVER
                     soundManager->playSound("voice-gameover", 0.5);
-                    QMessageBox::warning(this, "Game Lost", "Game over!");
+                    // QMessageBox::warning(this, "Game Lost", "Game over!");
                     stopGame();
+                    emit endOfGame();
                 }
                 else if(destroyScaler == 1.0F)
                 {

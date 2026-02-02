@@ -22,10 +22,21 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    PixelBlast *m_PixelBlast;
+    PixelBlast *pxbModule;
+
+    bool isOnline();
+    void setOnlineMode(bool value);
+
+
+private:
+    void showLoadPage(bool value);
+    void writeLog(QString log);
+    void interactableUI(bool value);
 
 private slots:
     void updateWindow();
+
+    void endOfGame();
 
     void receiveCurrent(const PixelStats &stat, bool ok);
 
@@ -33,11 +44,11 @@ private slots:
 
     void on_genNameBut_clicked();
 
-    void on_resetIdBut_clicked();
-
     void on_loginIdBut_clicked();
 
     void on_checkedOnlineMode_checkStateChanged(const Qt::CheckState &arg1);
+
+    void on_resetIDBut_clicked();
 
 private:
     QSettings *settings;

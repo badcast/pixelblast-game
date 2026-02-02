@@ -39,6 +39,8 @@ struct ShapeBlock
 
 class PB_EXPORT PixelBlast : public QWidget
 {
+    Q_OBJECT
+
 public:
     PixelBlast(QWidget *parent = nullptr);
 
@@ -47,6 +49,13 @@ public:
     void stopGame();
     void resetGame();
 
+    bool isPlaying();
+
+    inline int getFrames()
+    {
+        return frames;
+    }
+
     inline int getScores()
     {
         return scores;
@@ -54,11 +63,14 @@ public:
 
     PixelNetwork *network;
 
+signals:
+    void endOfGame();
+
 private slots:
     void updateScene();
 
-    void receiveCurrent(const PixelStats &stat, bool ok);
-    void receiveStats(const QList<PixelStats> &stats, bool ok);
+    // void receiveCurrent(const PixelStats &stat, bool ok);
+    // void receiveStats(const QList<PixelStats> &stats, bool ok);
 
 private:
     void mousePressEvent(QMouseEvent *event) override;

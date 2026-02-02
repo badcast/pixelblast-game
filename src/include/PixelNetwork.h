@@ -11,6 +11,7 @@ struct PixelStats
     int id;
     QString name;
     int maxPoints;
+    int rankPos;
 };
 
 class PB_EXPORT PixelNetwork : public QObject
@@ -25,7 +26,7 @@ public:
     ~PixelNetwork();
 
     void newClient(QString nickname);
-    void changeData(PixelStats stat);
+    void updateStats(PixelStats stat);
     void readStats();
 
 signals:
