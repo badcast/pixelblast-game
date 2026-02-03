@@ -176,11 +176,10 @@ void MainWindow::receiveCurrent(const PixelStats &stat, bool ok)
     // hide load page
     showLoadPage(false);
     interactableUI(true);
-    if(currentAccount)
-        currentAccount->maxPoints = -1;
     if(!ok)
     {
         writeLog("Ошибка подключения к интернету или серверная ошибка.");
+        QMessageBox::warning(this, "", "Ошибка подключения. Проверьте связь.");
         return;
     }
     writeLog("Успешно подключен к серверу.");
@@ -198,6 +197,7 @@ void MainWindow::receiveStats(const QList<PixelStats> &stats, bool ok)
     if(!ok)
     {
         writeLog("Ошибка подключения к интернету или серверная ошибка.");
+
         return;
     }
     writeLog("Успешно подключен к серверу. Имена получены.");
