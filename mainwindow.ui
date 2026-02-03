@@ -100,7 +100,7 @@
        <item row="0" column="5">
         <widget class="QPushButton" name="loginIdBut">
          <property name="text">
-          <string>ПОДТВЕРДИТЬ</string>
+          <string>ВХОД В СИСТЕМУ</string>
          </property>
         </widget>
        </item>

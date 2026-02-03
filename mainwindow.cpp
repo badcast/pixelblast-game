@@ -4,6 +4,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+// TODO: Make Game Over custom.
+
 QString generateNick()
 {
     QString result {};
@@ -44,7 +46,14 @@ void writeToSettings(QSettings *settings, const PixelStats &pb)
         settings->setValue("NAME", pb.name);
     }
 }
-
+void resetIDSettings(QSettings *settings)
+{
+    if(settings)
+    {
+        settings->remove("ID");
+        settings->remove("NAME");
+    }
+}
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow), currentAccount {}, anyUsers {}
 {
     settings = new QSettings("badcast", "Pixel Blast", this);
@@ -64,12 +73,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     writeLog("Инициализация...");
     auto result = readFromSettings(settings);
-    if(result.first)
+    if(result.first && !result.second.name.isEmpty())
     {
         currentAccount = std::make_shared<PixelStats>(result.second);
         currentAccount->maxPoints = -1;
         ui->textUserName->setText(result.second.name);
     }
+    else
+    {
+        resetIDSettings(settings);
+        ui->textUserName->setText(generateNick());
+    }
+    showLoadPage(false);
     setOnlineMode(false);
     writeLog("Игра запущена.");
     setWindowTitle("Pixel Blast Game");
@@ -81,12 +96,13 @@ MainWindow::~MainWindow()
 {
     if(currentAccount)
     {
+        if(isOnline())
+            pxbModule->network->updateStats(*currentAccount);
         writeToSettings(settings, *currentAccount);
     }
     else
     {
-        settings->remove("ID");
-        settings->remove("NAME");
+        resetIDSettings(settings);
     }
     delete ui;
 }
@@ -102,27 +118,25 @@ void MainWindow::setOnlineMode(bool value)
     ui->checkedOnlineMode->setChecked(value);
     ui->checkedOnlineMode->blockSignals(false);
     pxbModule->setOnlineMode(value);
+
     anyUsers.reset();
     if(value)
     {
         QObject::connect(pxbModule->network, &PixelNetwork::callbackCurrent, this, &MainWindow::receiveCurrent);
         QObject::connect(pxbModule->network, &PixelNetwork::callbackStats, this, &MainWindow::receiveStats);
+        pxbModule->network->readStats();
         if(currentAccount)
         {
-            if(currentAccount->maxPoints > -1)
-                pxbModule->network->updateStats(*currentAccount);
-            else
-                pxbModule->network->readStats();
-            interactableUI(false);
+            currentAccount->maxPoints = 0;
+            pxbModule->network->updateStats(*currentAccount);
         }
-        else
-            pxbModule->network->readStats();
     }
     else
     {
         writeLog("Вы в состояний оффлайн");
     }
-    showLoadPage(value);
+    interactableUI(true);
+    showableUI(value);
 
     pxbModule->startGame();
 }
@@ -148,12 +162,22 @@ void MainWindow::interactableUI(bool value)
     ui->genNameBut->setEnabled(value);
 }
 
+void MainWindow::showableUI(bool value)
+{
+    ui->label->setVisible(value);
+    ui->loginIdBut->setVisible(value);
+    ui->textUserName->setVisible(value);
+    ui->resetIDBut->setVisible(value);
+    ui->genNameBut->setVisible(value);
+}
+
 void MainWindow::receiveCurrent(const PixelStats &stat, bool ok)
 {
     // hide load page
     showLoadPage(false);
-    currentAccount->maxPoints = -1;
     interactableUI(true);
+    if(currentAccount)
+        currentAccount->maxPoints = -1;
     if(!ok)
     {
         writeLog("Ошибка подключения к интернету или серверная ошибка.");
@@ -169,6 +193,8 @@ void MainWindow::receiveCurrent(const PixelStats &stat, bool ok)
 
 void MainWindow::receiveStats(const QList<PixelStats> &stats, bool ok)
 {
+    showLoadPage(false);
+    interactableUI(true);
     if(!ok)
     {
         writeLog("Ошибка подключения к интернету или серверная ошибка.");
@@ -184,14 +210,13 @@ void MainWindow::receiveStats(const QList<PixelStats> &stats, bool ok)
             if((*anyUsers)[i].id == currentAccount->id)
             {
                 currentAccount->rankPos = i + 1;
-                if(currentAccount->maxPoints == -1)
-                {
-                    currentAccount->maxPoints = qMax(currentAccount->maxPoints, (*anyUsers)[i].maxPoints);
-                    pxbModule->network->updateStats(*currentAccount);
-                }
                 break;
             }
         }
+    }
+    else
+    {
+        showLoadPage(false);
     }
 }
 
@@ -202,21 +227,12 @@ void MainWindow::updateWindow()
     if(!pxbModule->isPlaying())
         return;
 
-    if(isOnline() && anyUsers && currentAccount)
+    if(isOnline() && currentAccount)
     {
-        if(currentAccount->maxPoints > -1 && pxbModule->getFrames() % 60 * 3 == 0)
-        {
-            // Send update data
-            pxbModule->network->updateStats(*currentAccount);
-        }
         y = currentAccount->rankPos;
     }
     // get max scores offline or online
     x = pxbModule->getScores();
-    if(currentAccount && currentAccount->maxPoints > -1)
-    {
-        x = currentAccount->maxPoints = qMax(currentAccount->maxPoints, x);
-    }
     ui->maxScoresText->setText(QString("Макс Очко: %1, В топе: %2").arg(x).arg(y));
 }
 
@@ -224,12 +240,13 @@ void MainWindow::endOfGame()
 {
     if(isOnline() && currentAccount)
     {
+        currentAccount->maxPoints = pxbModule->getScores();
         pxbModule->network->updateStats(*currentAccount);
     }
 
     writeLog("Конец игры. Перезапустите игру (нажать снова ВХОД)");
 
-    int result = QMessageBox::question(this, "Конец игры.", "Перезапустить игру?", QMessageBox::Yes, QMessageBox::No);
+    int result = QMessageBox::question(this, "Конец игры.", QString("Вы закончили игру со счётом %1 очков. Перезапустить игру?").arg(pxbModule->getScores()), QMessageBox::Yes, QMessageBox::No);
     if(result == QMessageBox::Yes)
     {
         pxbModule->startGame();
@@ -251,9 +268,10 @@ void MainWindow::on_loginIdBut_clicked()
     }
 
     QString str = ui->textUserName->text();
-    if(str.size() < 4)
+    bool hasInvalidSym = std::all_of(std::begin(str), std::end(str), [](const QChar &c) { return c.isDigit() || c.isLetter() || (c == ' '); });
+    if(!hasInvalidSym || str.size() < 4 || str.size() > 24)
     {
-        QMessageBox::warning(this, "Имя пользователя", "Имя пользователя не может быть меньше 4 символов");
+        QMessageBox::warning(this, "Имя пользователя", "Имя пользователя не может быть меньше 4 символов и не более 24 символов. Разрешено использовать только буквы и цифры с пробелом.");
         return;
     }
 
@@ -264,10 +282,9 @@ void MainWindow::on_loginIdBut_clicked()
     if(currentAccount)
     {
         currentAccount->name = str;
-        if(currentAccount->maxPoints > -1)
-            pxbModule->network->updateStats(*currentAccount);
-        else
-            pxbModule->network->readStats();
+        currentAccount->maxPoints = 0;
+        pxbModule->network->updateStats(*currentAccount);
+        pxbModule->network->readStats();
     }
     else
     {
@@ -285,9 +302,11 @@ void MainWindow::on_resetIDBut_clicked()
     int result = QMessageBox::question(this, "Сброс данных", "Это привидет к сбросу вашего статуса и ID. Вы уверены?", QMessageBox::Yes, QMessageBox::No);
     if(result == QMessageBox::Yes)
     {
+        resetIDSettings(settings);
         anyUsers.reset();
         currentAccount.reset();
         pxbModule->startGame();
         setOnlineMode(false);
+        ui->textUserName->setText(generateNick());
     }
 }

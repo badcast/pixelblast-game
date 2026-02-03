@@ -32,6 +32,7 @@ private:
     void showLoadPage(bool value);
     void writeLog(QString log);
     void interactableUI(bool value);
+    void showableUI(bool value);
 
 private slots:
     void updateWindow();

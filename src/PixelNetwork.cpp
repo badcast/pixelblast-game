@@ -28,7 +28,7 @@ inline std::pair<bool, PixelStats> getPixelStatObject(QJsonObject jsonObject)
 PixelNetwork::PixelNetwork(QObject *parent) : QObject(parent)
 {
     manager = new QNetworkAccessManager(this);
-    manager->setTransferTimeout(5000);
+    manager->setTransferTimeout(3000);
 }
 
 PixelNetwork::~PixelNetwork()
