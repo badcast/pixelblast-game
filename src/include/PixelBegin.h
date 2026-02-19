@@ -4,3 +4,7 @@
 #else
 #define PB_EXPORT Q_DECL_IMPORT
 #endif
+
+struct PixelStats;
+class SoundManager;
+class PixelNetwork;

@@ -14,6 +14,14 @@ struct PixelStats
     int rankPos;
 };
 
+enum NetworkResultFlags
+{
+    Ok = 0,
+    NoNetwork = 1,
+    UserNoExists = 2,
+    ServerError = 4
+};
+
 class PB_EXPORT PixelNetwork : public QObject
 {
     Q_OBJECT
@@ -28,10 +36,11 @@ public:
     void newClient(QString nickname);
     void updateStats(PixelStats stat);
     void readStats();
+    bool isConnected();
 
 signals:
-    void callbackCurrent(const PixelStats &stats, bool ok);
-    void callbackStats(const QList<PixelStats> &stats, bool ok);
+    void callbackCurrent(const PixelStats &stats, NetworkResultFlags ok);
+    void callbackStats(const QList<PixelStats> &stats, NetworkResultFlags ok);
 
 private slots:
     void onReplyCurrent();

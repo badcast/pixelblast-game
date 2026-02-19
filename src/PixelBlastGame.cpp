@@ -17,28 +17,12 @@
 
 #include "PixelBlastGame.h"
 #include "PixelBlastShapes.h"
-#include "PixelSoundManager.h"
 #include "PixelNetwork.h"
+#include "PixelSoundManager.h"
 
 constexpr int MaxCellWidth = 8;
 
-struct BlockResource
-{
-    QString name;
-    QList<QPixmap> resources;
-};
-
-std::shared_ptr<QPixmap> gameLogo {};
-std::shared_ptr<QPixmap> gridCell {};
-std::shared_ptr<QPixmap> gridCellBright {};
-std::shared_ptr<QPixmap> backgroundPix {};
-std::shared_ptr<QPixmap> cursorPix {};
-std::shared_ptr<QPixmap> gridBackgroundBorder {};
-std::shared_ptr<QPixmap> gridBackground {};
-std::shared_ptr<QPixmap> gridBackgroundBg {};
-std::shared_ptr<QPixmap> uiTopHeader {};
-std::shared_ptr<QList<BlockResource>> BlockRes {};
-std::shared_ptr<SoundManager> soundManager {};
+std::shared_ptr<PGlobalResources> _resource;
 
 QPixmap adjustBright(const QPixmap &pixmap, int brightness)
 {
@@ -70,19 +54,19 @@ constexpr inline OutT map(const InT x, const InT in_min, const InT in_max, const
     return qMin(qMax(mapped_value, out_min), out_max);
 }
 
-inline QPixmap *getColoredPixmap(int color, int frameIndex)
+inline QPixmap *getColoredPixmap(int color, int frameIndex, std::shared_ptr<PGlobalResources> &_res)
 {
-    BlockResource *br = &(*BlockRes)[color];
+    BlockResource *br = &(*_res->BlockRes)[color];
     return &(br->resources[frameIndex % br->resources.size()]);
 }
 
-inline void drawShapeAt(const ShapeBlock &shape, QPointF destPoint, QSizeF size, int frameIndex, QPainter &p, QPixmap *pixmap = nullptr)
+inline void drawShapeAt(const ShapeBlock &shape, QPointF destPoint, QSizeF size, int frameIndex, QPainter &p, std::shared_ptr<PGlobalResources> &_res, QPixmap *pixmap = nullptr)
 {
     int x;
     QRectF dest;
     dest.setSize(size);
     if(pixmap == nullptr)
-        pixmap = getColoredPixmap(shape.shapeColor, frameIndex);
+        pixmap = getColoredPixmap(shape.shapeColor, frameIndex, _res);
     for(x = 0; x < shape.blocks.size(); ++x)
     {
         dest.moveTopLeft(shape.blocks[x].adjustPoint(destPoint, dest.size()));
@@ -93,7 +77,7 @@ inline void drawShapeAt(const ShapeBlock &shape, QPointF destPoint, QSizeF size,
 void prepareResources()
 {
     // Load and initialize globalResources
-    if(BlockRes != nullptr)
+    if(_resource)
         return;
 
     constexpr auto _formatResourceName = ":/pixelblastgame/resourcepacks/blocks/%s";
@@ -113,13 +97,15 @@ void prepareResources()
         return;
     }
 
+    _resource = std::make_shared<PGlobalResources>();
+
     QTextStream stream(&file);
-    BlockRes = std::make_shared<QList<BlockResource>>();
+    _resource->BlockRes = std::make_shared<QList<BlockResource>>();
     while(stream.readLineInto(&content))
     {
         if(sscanf((content).toLocal8Bit().data(), _formatBlocks, buff, &n, buff0) != 3)
         {
-            BlockRes.reset();
+            _resource->BlockRes.reset();
             return;
         }
         tmp.name = buff;
@@ -131,44 +117,48 @@ void prepareResources()
             QPixmap qp(content);
             tmp.resources.append(std::move(qp));
         }
-        BlockRes->append(std::move(tmp));
+        _resource->BlockRes->append(std::move(tmp));
     }
-    gameLogo = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/game-logo")));
-    uiTopHeader = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/ui-top")));
-    backgroundPix = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/background")));
-    cursorPix = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/arrow")));
-    gridBackgroundBorder = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/grid-border")));
-    gridBackground = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/grid-background")));
-    gridBackgroundBg = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/grid-background-bg")));
-    gridCell = std::make_shared<QPixmap>(std::move(adjustBright(QPixmap(":/pixelblastgame/grid-cell"), 40)));
-    gridCellBright = std::make_shared<QPixmap>(std::move(adjustBright(*gridCell, 70)));
+    _resource->gameLogo = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/game-logo")));
+    _resource->uiTopHeader = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/ui-top")));
+    _resource->backgroundPix = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/background")));
+    _resource->cursorPix = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/arrow")));
+    _resource->gridBackgroundBorder = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/grid-border")));
+    _resource->gridBackground = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/grid-background")));
+    _resource->gridBackgroundBg = std::make_shared<QPixmap>(std::move(QPixmap(":/pixelblastgame/grid-background-bg")));
+    _resource->gridCell = std::make_shared<QPixmap>(std::move(adjustBright(QPixmap(":/pixelblastgame/grid-cell"), 40)));
+    _resource->gridCellBright = std::make_shared<QPixmap>(std::move(adjustBright(*_resource->gridCell, 70)));
 
     // Sounds
-    soundManager = std::make_shared<SoundManager>(nullptr);
-    soundManager->setPoolSize(24);
-    soundManager->registerSound("block-hits", QUrl::fromLocalFile(":/pixelblastgame/block-hits"), false);
+    _resource->soundManager = std::make_shared<SoundManager>(nullptr);
+    _resource->soundManager->setPoolSize(24);
+    _resource->soundManager->registerSound("block-hits", QUrl::fromLocalFile(":/pixelblastgame/block-hits"), false);
 
-    soundManager->registerSound("block-click0", QUrl::fromLocalFile(":/pixelblastgame/block-click0"));
-    soundManager->registerSound("block-click1", QUrl::fromLocalFile(":/pixelblastgame/block-click1"));
-    soundManager->registerSound("block-click2", QUrl::fromLocalFile(":/pixelblastgame/block-click2"));
+    _resource->soundManager->registerSound("block-click0", QUrl::fromLocalFile(":/pixelblastgame/block-click0"));
+    _resource->soundManager->registerSound("block-click1", QUrl::fromLocalFile(":/pixelblastgame/block-click1"));
+    _resource->soundManager->registerSound("block-click2", QUrl::fromLocalFile(":/pixelblastgame/block-click2"));
 
-    soundManager->registerSound("block-place0", QUrl::fromLocalFile(":/pixelblastgame/block-place0"));
-    soundManager->registerSound("block-place1", QUrl::fromLocalFile(":/pixelblastgame/block-place1"));
-    soundManager->registerSound("block-place2", QUrl::fromLocalFile(":/pixelblastgame/block-place2"));
+    _resource->soundManager->registerSound("block-place0", QUrl::fromLocalFile(":/pixelblastgame/block-place0"));
+    _resource->soundManager->registerSound("block-place1", QUrl::fromLocalFile(":/pixelblastgame/block-place1"));
+    _resource->soundManager->registerSound("block-place2", QUrl::fromLocalFile(":/pixelblastgame/block-place2"));
 
-    soundManager->registerSound("voice0", QUrl::fromLocalFile(":/pixelblastgame/voice0"));
-    soundManager->registerSound("voice1", QUrl::fromLocalFile(":/pixelblastgame/voice1"));
-    soundManager->registerSound("voice2", QUrl::fromLocalFile(":/pixelblastgame/voice2"));
-    soundManager->registerSound("voice3", QUrl::fromLocalFile(":/pixelblastgame/voice3"));
-    soundManager->registerSound("voice-gameover", QUrl::fromLocalFile(":/pixelblastgame/voice-gameover"));
+    _resource->soundManager->registerSound("voice0", QUrl::fromLocalFile(":/pixelblastgame/voice0"));
+    _resource->soundManager->registerSound("voice1", QUrl::fromLocalFile(":/pixelblastgame/voice1"));
+    _resource->soundManager->registerSound("voice2", QUrl::fromLocalFile(":/pixelblastgame/voice2"));
+    _resource->soundManager->registerSound("voice3", QUrl::fromLocalFile(":/pixelblastgame/voice3"));
+    _resource->soundManager->registerSound("voice-gameover", QUrl::fromLocalFile(":/pixelblastgame/voice-gameover"));
 
-    soundManager->registerSound("block-destroy", QUrl::fromLocalFile(":/pixelblastgame/block-destroy"));
+    _resource->soundManager->registerSound("block-destroy", QUrl::fromLocalFile(":/pixelblastgame/block-destroy"));
 }
 
-PixelBlast::PixelBlast(QWidget *parent) : QWidget(parent), updateTimer(this), boardRegion(0, 0, 328, 328), round(0), cellScale(1.0F, 1.0F), shapeCandidateIdx(-1), scores(0), frames(0), frameIndex(0), destroyScaler(0), mouseDownMode(true), lastSelectedBlock(-1), network(nullptr)
+PixelBlast::PixelBlast(QWidget *parent) : QWidget(parent), updateTimer(this), boardRegion(0, 0, 328, 328), round(0), cellScale(1.0F, 1.0F), shapeCandidateIdx(-1), scores(0), frames(0), frameIndex(0), destroyScaler(0), mouseDownMode(true), lastSelectedBlock(-1)
 {
     prepareResources();
-
+    _res = _resource;
+    if(!_res)
+    {
+        throw std::runtime_error("prepare resources is invalid init");
+    }
     resize(boardRegion.size().scaled(boardRegion.width() + 50, boardRegion.height() + 50, Qt::AspectRatioMode::IgnoreAspectRatio).toSize());
 
     cellSquare = MaxCellWidth;
@@ -176,34 +166,18 @@ PixelBlast::PixelBlast(QWidget *parent) : QWidget(parent), updateTimer(this), bo
 
     setMouseTracking(true);
     updateTimer.setSingleShot(false);
-    updateTimer.setInterval(1000.F / 60); // 60  FPS per sec
+    updateTimer.setInterval(1000.F / 60); // 60 FPS per sec
 
-    QBrush background(*backgroundPix);
+    QBrush background(*_res->backgroundPix);
     QPalette pal = palette();
     pal.setBrush(QPalette::Window, background);
     setPalette(pal);
     setAutoFillBackground(true);
 
-    QCursor cur(*cursorPix, 0, 0);
+    QCursor cur(*_res->cursorPix, 0, 0);
     setCursor(cur);
 
     QObject::connect(&updateTimer, &QTimer::timeout, this, &PixelBlast::updateScene);
-}
-
-void PixelBlast::setOnlineMode(bool state)
-{
-    if(!state)
-    {
-        if(network)
-            delete network;
-        network = nullptr;
-        resetGame();
-    }
-    else if(network == nullptr)
-    {
-        network = new PixelNetwork(this);
-        resetGame();
-    }
 }
 
 void PixelBlast::startGame()
@@ -310,7 +284,7 @@ void PixelBlast::assignBlocks(const QList<std::uint8_t> &blocks, ShapeBlock &ass
             assign.blocks.emplaceBack(x, y);
         }
     }
-    x = (BlockRes == nullptr) ? 0 : BlockRes->size();
+    x = (_res->BlockRes == nullptr) ? 0 : _res->BlockRes->size();
     assign.rawBlocks = blocks;
     assign.shapeColor = QRandomGenerator::global()->bounded(0, x);
 }
@@ -491,7 +465,7 @@ void PixelBlast::updateScene()
             // Place complete.
             if(d == 1)
             {
-                soundManager->playSound(QString("block-place%1").arg(QRandomGenerator::global()->bounded(2)), 0.5);
+                _res->soundManager->playSound(QString("block-place%1").arg(QRandomGenerator::global()->bounded(2)), 0.5);
 
                 // Test destroy block-points, and optimization
                 for(d = 0; d < currentShape->blocks.size(); ++d)
@@ -543,15 +517,15 @@ void PixelBlast::updateScene()
                 if(y == z && z > 0)
                 {
                     // GAME OVER
-                    soundManager->playSound("voice-gameover", 0.5);
+                    _res->soundManager->playSound("voice-gameover", 0.5);
                     // QMessageBox::warning(this, "Game Lost", "Game over!");
                     stopGame();
                     emit endOfGame();
                 }
                 else if(destroyScaler == 1.0F)
                 {
-                    soundManager->playSound("block-destroy", 0.5);
-                    soundManager->playSound(QString("voice%1").arg(QRandomGenerator::global()->bounded(3)), 0.5);
+                    _res->soundManager->playSound("block-destroy", 0.5);
+                    _res->soundManager->playSound(QString("voice%1").arg(QRandomGenerator::global()->bounded(3)), 0.5);
                 }
             }
         }
@@ -576,7 +550,7 @@ void PixelBlast::updateScene()
             if(shapeCandidates[x] && (mouseDownMode && mouseDownUpped || mouseBtn == Qt::LeftButton))
             {
                 currentShape = std::move(shapeCandidates[x]);
-                soundManager->playSound(QString("block-click%1").arg(QRandomGenerator::global()->bounded(2)), 0.8);
+                _res->soundManager->playSound(QString("block-click%1").arg(QRandomGenerator::global()->bounded(2)), 0.8);
             }
         }
     }
@@ -602,17 +576,17 @@ void PixelBlast::paintEvent(QPaintEvent *event)
     QWidget::paintEvent(event);
 
     // Draw game logo
-    dest.setSize(gameLogo->size().toSizeF());
+    dest.setSize(_res->gameLogo->size().toSizeF());
     dest.setHeight(boardRegion.width() * 1.4F / (dest.width() / dest.height()));
     dest.setWidth(boardRegion.width() * 1.4F);
     dest.moveTopLeft(boardRegion.topLeft() + QPointF((boardRegion.width() - dest.width()) / 2, -dest.height() / 1.2F));
-    p.drawPixmap(dest, *gameLogo, {});
+    p.drawPixmap(dest, *_res->gameLogo, {});
 
     // Draw grid & cells (central)
     dest = boardRegion;
-    p.drawPixmap(dest + QMarginsF(84, 84, 84, 84), *gridBackgroundBorder, {});
-    p.drawPixmap(dest, *gridBackgroundBg, {});
-    p.drawPixmap(dest, *gridBackground, {});
+    p.drawPixmap(dest + QMarginsF(84, 84, 84, 84), *_res->gridBackgroundBorder, {});
+    p.drawPixmap(dest, *_res->gridBackgroundBg, {});
+    p.drawPixmap(dest, *_res->gridBackground, {});
 
     destPoint.setX(qFloor(cellSquare * (mousePoint.x() - boardRegion.x()) / (boardRegion.width())));
     destPoint.setY(qFloor(cellSquare * (mousePoint.y() - boardRegion.y()) / (boardRegion.height())));
@@ -629,12 +603,12 @@ void PixelBlast::paintEvent(QPaintEvent *event)
         if(w == 2)
         {
             p.setOpacity(1.0D);
-            pixmap = &(*gridCellBright);
+            pixmap = &(*_res->gridCellBright);
         }
         else
         {
             p.setOpacity(0.3D);
-            pixmap = &(*gridCell);
+            pixmap = &(*_res->gridCell);
         }
         p.drawPixmap(dest, *pixmap, {});
 
@@ -643,16 +617,16 @@ void PixelBlast::paintEvent(QPaintEvent *event)
             if(currentShape == nullptr && (x == destPoint.x()) && (y == destPoint.y()))
             {
                 dest += QMarginsF(3, 3, 3, 3);
-                pixmap = getColoredPixmap(grid[z] >> 2, frameIndex);
+                pixmap = getColoredPixmap(grid[z] >> 2, frameIndex, _res);
                 if(lastSelectedBlock != z)
                 {
-                    soundManager->playSound("block-hits", 0.3);
+                    _res->soundManager->playSound("block-hits", 0.3);
                     lastSelectedBlock = z;
                 }
             }
             else
             {
-                pixmap = getColoredPixmap(grid[z] >> 2, 0);
+                pixmap = getColoredPixmap(grid[z] >> 2, 0, _res);
             }
             p.setOpacity(1.0D);
             p.drawPixmap(dest, *pixmap, {});
@@ -670,7 +644,7 @@ void PixelBlast::paintEvent(QPaintEvent *event)
     {
         const auto &db = destroyBlocks[x];
         dest.moveTopLeft(db.first.adjustPoint(destPoint, dest.size()));
-        pixmap = getColoredPixmap(db.second, 0);
+        pixmap = getColoredPixmap(db.second, 0, _res);
         p.drawPixmap(dest.marginsRemoved(QMarginsF(y * (1 - destroyScaler), y * (1 - destroyScaler), y * (1 - destroyScaler), y * (1 - destroyScaler))), *pixmap, {});
     }
 
@@ -680,18 +654,18 @@ void PixelBlast::paintEvent(QPaintEvent *event)
     if(shapeCandidateIdx != -1 && shapeCandidates[shapeCandidateIdx])
     {
         // tmpPixmap = std::move(adjustBright(*getColoredPixmap((*shapeCandidates[shapeCandidateIdx]).shapeColor, frameIndex), 60));
-        pixmap = getColoredPixmap((*shapeCandidates[shapeCandidateIdx]).shapeColor, frameIndex);
+        pixmap = getColoredPixmap((*shapeCandidates[shapeCandidateIdx]).shapeColor, frameIndex, _res);
     }
 
     for(z = 0; z < shapeCandidates.size(); ++z)
     {
-        p.drawPixmap(dest, *gridCell, {});
+        p.drawPixmap(dest, *_res->gridCell, {});
         if(shapeCandidates[z])
         {
             destPoint.setX(scaleFactor.width() * 0.6F * shapeCandidates[z]->columns);
             destPoint.setY(scaleFactor.height() * 0.6F * shapeCandidates[z]->rows);
             destPoint = dest.topLeft() + QPointF((dest.width() - destPoint.x()) / 2, (dest.height() - destPoint.y()) / 2);
-            drawShapeAt(*shapeCandidates[z], destPoint, scaleFactor * 0.6F, 0, p, ((z == shapeCandidateIdx) ? pixmap : nullptr));
+            drawShapeAt(*shapeCandidates[z], destPoint, scaleFactor * 0.6F, 0, p, _res, ((z == shapeCandidateIdx) ? pixmap : nullptr));
         }
         dest.moveLeft(dest.x() + dest.width());
     }
@@ -702,7 +676,7 @@ void PixelBlast::paintEvent(QPaintEvent *event)
         p.setOpacity(0.8D);
         dest.setSize(scaleFactor * 0.9F);
         destPoint = {mousePoint.x() - static_cast<float>(currentShape->columns * dest.width()) / 2, mousePoint.y() - static_cast<float>(currentShape->rows * dest.height()) / 2};
-        drawShapeAt(*currentShape, destPoint, dest.size(), frameIndex, p);
+        drawShapeAt(*currentShape, destPoint, dest.size(), frameIndex, p, _res);
     }
 
     p.drawText(QPoint {10, 200}, QString("Score: ") + QString::number(scores));

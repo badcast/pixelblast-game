@@ -12,7 +12,7 @@ constexpr char CallbackUrl[] = "https://example.com/callback";
 constexpr char CallbackUrl[] = CALLBACK_URL;
 #endif
 
-inline std::pair<bool, PixelStats> getPixelStatObject(QJsonObject jsonObject)
+inline std::tuple<bool, PixelStats> getPixelStatObject(QJsonObject jsonObject)
 {
     PixelStats stat {};
     bool success;
@@ -37,20 +37,17 @@ PixelNetwork::~PixelNetwork()
 
 void PixelNetwork::newClient(QString nickname)
 {
-    QJsonDocument jdoc;
     QJsonObject json;
     QNetworkReply *reply;
 
     json["name"] = nickname;
     json["maxPoints"] = 0;
-    QString aaa =  QJsonDocument(json).toJson(QJsonDocument::Compact);
-    reply = manager->post(QNetworkRequest(QUrl(CallbackUrl)), aaa.toUtf8());
+    reply = manager->post(QNetworkRequest(QUrl(CallbackUrl)), QJsonDocument(json).toJson(QJsonDocument::Compact));
     QObject::connect(reply, &QNetworkReply::finished, this, &PixelNetwork::onReplyCurrent);
 }
 
 void PixelNetwork::updateStats(PixelStats stat)
 {
-    QJsonDocument jdoc;
     QJsonObject json;
     QNetworkReply *reply;
 
@@ -67,12 +64,17 @@ void PixelNetwork::readStats()
     QObject::connect(reply, &QNetworkReply::finished, this, &PixelNetwork::onReplyStats);
 }
 
+bool PixelNetwork::isConnected()
+{
+    return 0;
+}
+
 // CALLBACK RETURN SLOTS
 
 void PixelNetwork::onReplyCurrent()
 {
     PixelStats curStat {};
-    bool ok = false;
+    NetworkResultFlags state = NetworkResultFlags::NoNetwork;
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if(reply)
     {
@@ -80,14 +82,18 @@ void PixelNetwork::onReplyCurrent()
         {
             QJsonDocument jdoc = QJsonDocument::fromJson(reply->readAll());
             QJsonObject data = jdoc["data"]["client"].toObject();
-            if((ok = jdoc["ok"].toBool() && !data.isEmpty()))
+            if((jdoc["ok"].toBool() && !data.isEmpty()))
             {
                 const auto &result = getPixelStatObject(data);
-                if((ok = result.first))
-                    curStat = result.second;
+                if((ok = std::get<0>(result)))
+                    curStat = std::get<1>(result);
+            }
+            else
+            {
+                state = NetworkResultFlags::ServerError;
             }
         }
-        emit callbackCurrent(curStat, ok);
+        emit callbackCurrent(curStat, state);
         reply->deleteLater();
     }
 }
@@ -96,6 +102,7 @@ void PixelNetwork::onReplyStats()
 {
     QList<PixelStats> stats {};
     bool ok = false;
+
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if(reply)
     {
@@ -108,12 +115,12 @@ void PixelNetwork::onReplyStats()
                 for(int x = 0; x < items.size(); ++x)
                 {
                     const auto &result = getPixelStatObject(items[x].toObject());
-                    if(!(ok = result.first))
+                    if(!(ok = std::get<0>(result)))
                     {
                         stats.clear();
                         break;
                     }
-                    stats.push_back(result.second);
+                    stats.push_back(std::get<1>(result));
                 }
             }
         }

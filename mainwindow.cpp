@@ -54,7 +54,7 @@ void resetIDSettings(QSettings *settings)
         settings->remove("NAME");
     }
 }
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow), currentAccount {}, anyUsers {}
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow), currentAccount {}, anyUsers {}, network(nullptr), onlineSetup(0)
 {
     settings = new QSettings("badcast", "Pixel Blast", this);
 
@@ -97,7 +97,7 @@ MainWindow::~MainWindow()
     if(currentAccount)
     {
         if(isOnline())
-            pxbModule->network->updateStats(*currentAccount);
+            network->updateStats(*currentAccount);
         writeToSettings(settings, *currentAccount);
     }
     else
@@ -109,7 +109,7 @@ MainWindow::~MainWindow()
 
 bool MainWindow::isOnline()
 {
-    return pxbModule != nullptr && pxbModule->network != nullptr;
+    return pxbModule != nullptr && network != nullptr;
 }
 
 void MainWindow::setOnlineMode(bool value)
@@ -117,22 +117,28 @@ void MainWindow::setOnlineMode(bool value)
     ui->checkedOnlineMode->blockSignals(true);
     ui->checkedOnlineMode->setChecked(value);
     ui->checkedOnlineMode->blockSignals(false);
-    pxbModule->setOnlineMode(value);
 
     anyUsers.reset();
+
     if(value)
     {
-        QObject::connect(pxbModule->network, &PixelNetwork::callbackCurrent, this, &MainWindow::receiveCurrent);
-        QObject::connect(pxbModule->network, &PixelNetwork::callbackStats, this, &MainWindow::receiveStats);
-        pxbModule->network->readStats();
+        network = new PixelNetwork(this);
+        QObject::connect(network, &PixelNetwork::callbackCurrent, this, &MainWindow::receiveCurrent);
+        QObject::connect(network, &PixelNetwork::callbackStats, this, &MainWindow::receiveStats);
+        network->readStats();
+        pxbModule->resetGame();
         if(currentAccount)
         {
             currentAccount->maxPoints = 0;
-            pxbModule->network->updateStats(*currentAccount);
+            network->updateStats(*currentAccount);
         }
     }
     else
     {
+        if(network)
+            delete network;
+        network = nullptr;
+        pxbModule->resetGame();
         writeLog("Вы в состояний оффлайн");
     }
     interactableUI(true);
@@ -187,7 +193,7 @@ void MainWindow::receiveCurrent(const PixelStats &stat, bool ok)
     ui->textUserName->setText(currentAccount->name);
     // write id
     writeToSettings(settings, stat);
-    pxbModule->network->readStats();
+    network->readStats();
 }
 
 void MainWindow::receiveStats(const QList<PixelStats> &stats, bool ok)
@@ -241,7 +247,7 @@ void MainWindow::endOfGame()
     if(isOnline() && currentAccount)
     {
         currentAccount->maxPoints = pxbModule->getScores();
-        pxbModule->network->updateStats(*currentAccount);
+        network->updateStats(*currentAccount);
     }
 
     writeLog("Конец игры. Перезапустите игру (нажать снова ВХОД)");
@@ -261,7 +267,7 @@ void MainWindow::on_genNameBut_clicked()
 void MainWindow::on_loginIdBut_clicked()
 {
     writeLog("Вход на сервер...");
-    if(pxbModule->network == nullptr)
+    if(network == nullptr)
     {
         writeLog("Состояние оффлайн. Включите ONLINE режим.");
         return;
@@ -283,12 +289,12 @@ void MainWindow::on_loginIdBut_clicked()
     {
         currentAccount->name = str;
         currentAccount->maxPoints = 0;
-        pxbModule->network->updateStats(*currentAccount);
-        pxbModule->network->readStats();
+        network->updateStats(*currentAccount);
+        network->readStats();
     }
     else
     {
-        pxbModule->network->newClient(str);
+        network->newClient(str);
     }
 }
 

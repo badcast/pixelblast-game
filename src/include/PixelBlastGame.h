@@ -10,11 +10,6 @@
 
 #include "PixelBegin.h"
 
-#include "PixelNetwork.h"
-
-struct PixelStats;
-class PixelNetwork;
-
 struct PB_EXPORT BlockObject
 {
     int x;
@@ -37,6 +32,27 @@ struct ShapeBlock
     QList<BlockObject> blocks;
 };
 
+struct BlockResource
+{
+    QString name;
+    QList<QPixmap> resources;
+};
+
+struct PGlobalResources
+{
+    std::shared_ptr<QPixmap> gameLogo {};
+    std::shared_ptr<QPixmap> gridCell {};
+    std::shared_ptr<QPixmap> gridCellBright {};
+    std::shared_ptr<QPixmap> backgroundPix {};
+    std::shared_ptr<QPixmap> cursorPix {};
+    std::shared_ptr<QPixmap> gridBackgroundBorder {};
+    std::shared_ptr<QPixmap> gridBackground {};
+    std::shared_ptr<QPixmap> gridBackgroundBg {};
+    std::shared_ptr<QPixmap> uiTopHeader {};
+    std::shared_ptr<QList<BlockResource>> BlockRes {};
+    std::shared_ptr<SoundManager> soundManager {};
+};
+
 class PB_EXPORT PixelBlast : public QWidget
 {
     Q_OBJECT
@@ -44,7 +60,6 @@ class PB_EXPORT PixelBlast : public QWidget
 public:
     PixelBlast(QWidget *parent = nullptr);
 
-    void setOnlineMode(bool state);
     void startGame();
     void stopGame();
     void resetGame();
@@ -60,8 +75,6 @@ public:
     {
         return scores;
     }
-
-    PixelNetwork *network;
 
 signals:
     void endOfGame();
@@ -106,7 +119,6 @@ private:
     QList<std::uint8_t> grid;
 
     QList<PixelStats> _onlineStats;
-    PixelStats _onlineCurrent;
 
     float destroyScaler;
     QList<std::pair<BlockObject, int>> destroyBlocks;
@@ -115,4 +127,6 @@ private:
     std::array<std::shared_ptr<ShapeBlock>, 3> shapeCandidates;
 
     std::shared_ptr<ShapeBlock> currentShape;
+
+    std::shared_ptr<PGlobalResources> _res;
 };

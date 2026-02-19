@@ -7,7 +7,9 @@
 #include <QSettings>
 #include <QTimer>
 
+#include "PixelBegin.h"
 #include "PixelBlastGame.h"
+#include "PixelNetwork.h"
 
 namespace Ui
 {
@@ -52,11 +54,13 @@ private slots:
     void on_resetIDBut_clicked();
 
 private:
+    int onlineSetup;
     QSettings *settings;
     Ui::MainWindow *ui;
 
     std::shared_ptr<PixelStats> currentAccount;
     std::shared_ptr<QList<PixelStats>> anyUsers;
+    PixelNetwork *network;
 
     QTimer *timer;
 };
