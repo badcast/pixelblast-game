@@ -41,9 +41,9 @@ private slots:
 
     void endOfGame();
 
-    void receiveCurrent(const PixelStats &stat, bool ok);
+    void receiveCurrent(const PixelStats &stat, NetworkResultFlags ok);
 
-    void receiveStats(const QList<PixelStats> &stats, bool ok);
+    void receiveStats(const QList<PixelStats> &stats, NetworkResultFlags ok);
 
     void on_genNameBut_clicked();
 

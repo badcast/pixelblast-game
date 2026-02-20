@@ -82,15 +82,15 @@ void PixelNetwork::onReplyCurrent()
         {
             QJsonDocument jdoc = QJsonDocument::fromJson(reply->readAll());
             QJsonObject data = jdoc["data"]["client"].toObject();
+            state = NetworkResultFlags::UserNoExists;
             if((jdoc["ok"].toBool() && !data.isEmpty()))
             {
                 const auto &result = getPixelStatObject(data);
-                if((ok = std::get<0>(result)))
+                if(std::get<0>(result))
+                {
                     curStat = std::get<1>(result);
-            }
-            else
-            {
-                state = NetworkResultFlags::ServerError;
+                    state = NetworkResultFlags::Ok;
+                }
             }
         }
         emit callbackCurrent(curStat, state);
@@ -101,8 +101,7 @@ void PixelNetwork::onReplyCurrent()
 void PixelNetwork::onReplyStats()
 {
     QList<PixelStats> stats {};
-    bool ok = false;
-
+    NetworkResultFlags state = NetworkResultFlags::NoNetwork;
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if(reply)
     {
@@ -110,13 +109,15 @@ void PixelNetwork::onReplyStats()
         {
             QJsonDocument jdoc = QJsonDocument::fromJson(reply->readAll());
             QJsonArray items = jdoc["data"]["items"].toArray();
-            if((ok = jdoc["ok"].toBool()))
+            if(jdoc["ok"].toBool())
             {
+                state = NetworkResultFlags::Ok;
                 for(int x = 0; x < items.size(); ++x)
                 {
                     const auto &result = getPixelStatObject(items[x].toObject());
-                    if(!(ok = std::get<0>(result)))
+                    if(!(std::get<0>(result)))
                     {
+                        state = NetworkResultFlags::ServerError;
                         stats.clear();
                         break;
                     }
@@ -124,7 +125,7 @@ void PixelNetwork::onReplyStats()
                 }
             }
         }
-        emit callbackStats(stats, ok);
+        emit callbackStats(stats, state);
         reply->deleteLater();
     }
 }

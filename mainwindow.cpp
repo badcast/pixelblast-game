@@ -177,12 +177,12 @@ void MainWindow::showableUI(bool value)
     ui->genNameBut->setVisible(value);
 }
 
-void MainWindow::receiveCurrent(const PixelStats &stat, bool ok)
+void MainWindow::receiveCurrent(const PixelStats &stat, NetworkResultFlags state)
 {
     // hide load page
     showLoadPage(false);
     interactableUI(true);
-    if(!ok)
+    if(state)
     {
         writeLog("Ошибка подключения к интернету или серверная ошибка.");
         QMessageBox::warning(this, "", "Ошибка подключения. Проверьте связь.");
@@ -196,14 +196,13 @@ void MainWindow::receiveCurrent(const PixelStats &stat, bool ok)
     network->readStats();
 }
 
-void MainWindow::receiveStats(const QList<PixelStats> &stats, bool ok)
+void MainWindow::receiveStats(const QList<PixelStats> &stats, NetworkResultFlags state)
 {
     showLoadPage(false);
     interactableUI(true);
-    if(!ok)
+    if(state)
     {
         writeLog("Ошибка подключения к интернету или серверная ошибка.");
-
         return;
     }
     writeLog("Успешно подключен к серверу. Имена получены.");
