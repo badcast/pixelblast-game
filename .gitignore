@@ -1,5 +1,7 @@
 CMakeLists.txt.user
 .vscode 
+.cache
 build
 .qtcreator
 .env
+.clang

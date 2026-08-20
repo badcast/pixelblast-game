@@ -1,11 +1,20 @@
 #include <QApplication>
+#include <QFile>
+#include <QTextStream>
 
 #include "mainwindow.h"
 
 int main(int argc, char *argv[])
 {
-    QApplication a(argc, argv);
-    MainWindow mainWindow;
-    mainWindow.show();
-    return a.exec();
+  QApplication a(argc, argv);
+  QFile file(":/RES/style");
+  if (file.open(QFile::ReadOnly)) {
+    QTextStream qts(&file);
+    QString styles = qts.readAll();
+    a.setStyleSheet(styles);
+  }
+
+  MainWindow mainWindow;
+  mainWindow.show();
+  return a.exec();
 }

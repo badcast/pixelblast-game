@@ -10,11 +10,6 @@
 
 #include "PixelBegin.h"
 
-#include "PixelNetwork.h"
-
-struct PixelStats;
-class PixelNetwork;
-
 struct PB_EXPORT BlockObject
 {
     int x;
@@ -37,28 +32,56 @@ struct ShapeBlock
     QList<BlockObject> blocks;
 };
 
+struct BlockResource
+{
+    QString name;
+    QList<QPixmap> resources;
+};
+
+struct PGlobalResources
+{
+    std::shared_ptr<QPixmap> gameLogo {};
+    std::shared_ptr<QPixmap> gridCell {};
+    std::shared_ptr<QPixmap> gridCellBright {};
+    std::shared_ptr<QPixmap> backgroundPix {};
+    std::shared_ptr<QPixmap> cursorPix {};
+    std::shared_ptr<QPixmap> gridBackgroundBorder {};
+    std::shared_ptr<QPixmap> gridBackground {};
+    std::shared_ptr<QPixmap> gridBackgroundBg {};
+    std::shared_ptr<QPixmap> uiTopHeader {};
+    std::shared_ptr<QList<BlockResource>> BlockRes {};
+    std::shared_ptr<SoundManager> soundManager {};
+};
+
 class PB_EXPORT PixelBlast : public QWidget
 {
+    Q_OBJECT
+
 public:
     PixelBlast(QWidget *parent = nullptr);
 
-    void setOnlineMode(bool state);
+    void setCellSize(float newSize);
     void startGame();
     void stopGame();
     void resetGame();
 
-    inline int getScores()
+    bool isPlaying();
+
+    inline int getFrames()
     {
-        return scores;
+        return mFrames;
     }
 
-    PixelNetwork *network;
+    inline int getScores()
+    {
+        return mScores;
+    }
+
+signals:
+    void endOfGame();
 
 private slots:
     void updateScene();
-
-    void receiveCurrent(const PixelStats &stat, bool ok);
-    void receiveStats(const QList<PixelStats> &stats, bool ok);
 
 private:
     void mousePressEvent(QMouseEvent *event) override;
@@ -74,33 +97,34 @@ private:
 
     float heightOffsetCandidates = 30;
 
-    int cellSquare;
-    int mouseBtn;
-    int scores;
-    int frames;
-    int frameIndex;
-    int round;
-    int lastSelectedBlock;
+    int mCellSquare;
+    int mMouseBtn;
+    int mScores;
+    int mFrames;
+    int mFrameIndex;
+    int mRound;
+    int mLastSelectedBlock;
 
-    bool mouseDownMode;
-    bool mouseDownUpped;
+    bool mMouseDownMode;
+    bool mMouseDownUpped;
 
-    QPoint mousePoint;
-    QSizeF cellScale;
-    QSizeF cellSize;
-    QSizeF scaleFactor;
-    QRectF boardRegion;
-    QTimer updateTimer;
-    QList<std::uint8_t> grid;
+    QPoint mMousePoint;
+    QSizeF mCellScale;
+    QSizeF mCellSize;
+    QSizeF mScaleFactor;
+    QRectF mBoardRegion;
+    QTimer mUpdateTimer;
+    QList<std::uint8_t> mGrid;
 
-    QList<PixelStats> _onlineStats;
-    PixelStats _onlineCurrent;
+    QList<PixelStats> mOnlineStats;
 
-    float destroyScaler;
-    QList<std::pair<BlockObject, int>> destroyBlocks;
+    float mDestroyScaler;
+    QList<std::pair<BlockObject, int>> mDestroyBlocks;
 
     int shapeCandidateIdx;
-    std::array<std::shared_ptr<ShapeBlock>, 3> shapeCandidates;
+    std::array<std::shared_ptr<ShapeBlock>, 3> mShapeCandidates;
 
-    std::shared_ptr<ShapeBlock> currentShape;
+    std::shared_ptr<ShapeBlock> mCurrentShape;
+
+    std::shared_ptr<PGlobalResources> mRsrc;
 };

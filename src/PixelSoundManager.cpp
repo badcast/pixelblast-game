@@ -48,18 +48,24 @@ void SoundManager::registerSound(const QString &name, const QUrl &url, bool asPo
 
 void SoundManager::playSound(const QString &name, qreal volume)
 {
-    int x, y;
     if(!m_registry.contains(name))
         return;
     ensurePool();
+    if(m_pool.isEmpty())
+        return;
+
     const std::tuple<int, QUrl> &val = m_registry.value(name);
-    int start = m_nextIndex;
     int idx = std::get<0>(val);
     if(idx == -1)
     {
-        for(x = m_minIndex; x < m_pool.size(); ++x)
+        int poolCount = m_pool.size() - m_minIndex;
+        if(poolCount <= 0)
+            return;
+
+        int start = m_nextIndex;
+        for(int x = 0; x < poolCount; ++x)
         {
-            y = (start + x) % m_pool.size();
+            int y = m_minIndex + (start + x) % poolCount;
             QSoundEffect *se = m_pool[y];
             if(!se->isPlaying())
             {
@@ -69,16 +75,19 @@ void SoundManager::playSound(const QString &name, qreal volume)
         }
         if(idx == -1)
         {
-            idx = (m_nextIndex + m_minIndex) % m_pool.size() + m_minIndex;
-            m_nextIndex = (m_nextIndex + 1 + m_minIndex) % m_pool.size() + m_minIndex;
+            idx = m_minIndex + (m_nextIndex % poolCount);
+            m_nextIndex = (m_nextIndex + 1) % poolCount;
         }
     }
 
-    QSoundEffect *effect = m_pool[idx];
-    if(effect->source() != std::get<1>(val))
+    if(idx >= 0 && idx < m_pool.size())
     {
-        effect->setSource(std::get<1>(val));
+        QSoundEffect *effect = m_pool[idx];
+        if(effect->source() != std::get<1>(val))
+        {
+            effect->setSource(std::get<1>(val));
+        }
+        effect->setVolume(qBound<qreal>(0.0, volume, 1.0));
+        effect->play();
     }
-    effect->setVolume(qBound<qreal>(0.0, volume, 1.0));
-    effect->play();
 }

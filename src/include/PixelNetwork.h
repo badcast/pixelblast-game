@@ -11,6 +11,15 @@ struct PixelStats
     int id;
     QString name;
     int maxPoints;
+    int rankPos;
+};
+
+enum NetworkResultFlags
+{
+    Ok = 0,
+    NoNetwork = 1,
+    UserNoExists = 2,
+    ServerError = 4
 };
 
 class PB_EXPORT PixelNetwork : public QObject
@@ -25,12 +34,13 @@ public:
     ~PixelNetwork();
 
     void newClient(QString nickname);
-    void changeData(PixelStats stat);
-    void readStats();
+    void updateStats(PixelStats stat);
+    void readUsers(std::uint32_t max = std::uint32_t(-1));
+    bool isConnected();
 
 signals:
-    void callbackCurrent(const PixelStats &stats, bool ok);
-    void callbackStats(const QList<PixelStats> &stats, bool ok);
+    void callbackCurrent(const PixelStats &stats, NetworkResultFlags ok);
+    void callbackUsers(const QList<PixelStats> &stats, NetworkResultFlags ok);
 
 private slots:
     void onReplyCurrent();
